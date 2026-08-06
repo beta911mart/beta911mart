@@ -797,7 +797,7 @@
         });
     }
 
-    function tarikDataDariCloudDesktop() {
+function tarikDataDariCloudDesktop() {
         requestAdminApproval('Tarik Data dari Cloud', async () => {
             let cloudUrl = localStorage.getItem('pos_desktop_cloud_url');
             if (!cloudUrl) {
@@ -812,8 +812,10 @@
                 
                 let data = await response.json();
 
+                // --- PROSES SALES ---
                 if (data.sales && Array.isArray(data.sales)) {
                     for (let s of data.sales) {
+                        if (!s.trxNo) continue;
                         let existing = await db.sales.where('trxNo').equals(s.trxNo).first();
                         if (!existing) {
                             let { id, ...cleanData } = s;
@@ -822,12 +824,45 @@
                     }
                 }
 
-                if (data.inventory && Array.isArray(data.inventory)) await db.inventory.bulkPut(data.inventory);
-                if (data.users && Array.isArray(data.users)) await db.users.bulkPut(data.users);
-                if (data.settings && Array.isArray(data.settings)) await db.settings.bulkPut(data.settings);
+                // --- PROSES INVENTORY DENGAN AUTO-ID & MAP FLEKSIBEL (MENCEGAH DATAERROR) ---
+                if (data.inventory && Array.isArray(data.inventory)) {
+                    let validInventory = data.inventory.map((item, index) => {
+                        return {
+                            id: item.id || item.ID || item.barcode || `AUTO_${index}_${Date.now()}`,
+                            barcode: item.barcode || item.Barcode || '',
+                            nama: item.nama || item.Nama || item.NAME || '',
+                            harga: Number(item.harga || item.Harga || item.HARGA || 0),
+                            stok: Number(item.stok || item.Stok || item.STOK || 0)
+                        };
+                    }).filter(item => item.nama !== "");
 
-                await loadInventoryCache();
-                refreshTabelSetting();
+                    await db.inventory.clear();
+                    await db.inventory.bulkPut(validInventory);
+                }
+
+                // --- PROSES USERS ---
+                if (data.users && Array.isArray(data.users)) {
+                    let validUsers = data.users.map((u, index) => ({
+                        id: u.id || u.ID || (index + 1),
+                        nama: u.nama || u.Nama || '',
+                        jabatan: u.jabatan || u.Jabatan || 'Staff',
+                        password: u.password || u.Password || ''
+                    })).filter(u => u.nama !== "");
+
+                    await db.users.clear();
+                    await db.users.bulkPut(validUsers);
+                }
+
+                // --- PROSES SETTINGS ---
+                if (data.settings && Array.isArray(data.settings)) {
+                    let validSettings = data.settings.filter(s => s.key);
+                    await db.settings.clear();
+                    await db.settings.bulkPut(validSettings);
+                }
+
+                if (typeof loadInventoryCache === 'function') await loadInventoryCache();
+                if (typeof refreshTabelSetting === 'function') refreshTabelSetting();
+                
                 logActivity('SYNC', 'Tarik data (Pull) dari Cloud berhasil dilakukan.');
                 showAlert('Sinkronisasi Berhasil! Rekap penjualan & stok diperbarui.');
             } catch (error) {
