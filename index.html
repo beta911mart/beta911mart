@@ -655,42 +655,45 @@
 
 <div id="struk-print-area"></div>
 <script>
-    async function runBackgroundBatchSync() {
-    // Jika belum ada kasir yang login, batalkan proses background sync
-    if (!activeKasir) return; 
+async function runBackgroundBatchSync() {
+        // Jika belum ada kasir yang login, batalkan proses background sync
+        if (!activeKasir) return; 
 
-    if (!navigator.onLine) {
-        updateNetworkStatus('down');
-        return;
+        if (!navigator.onLine) {
+            updateNetworkStatus('down');
+            return;
+        }
+
+        const cloudUrl = localStorage.getItem('pos_cloud_url');
+        if (!cloudUrl) return;
+
+        // Indikator Visual: Ubah badge menjadi ikon sync berputar (🔄)
+        const badge = document.getElementById('netStatusBadge');
+        if (badge) {
+            badge.innerText = '🔄';
+            badge.title = 'Sedang menyinkronkan data ke Cloud...';
+        }
+
+        try {
+            let sales = await db.sales.toArray();
+            let pending_trx = await db.pending_trx.toArray();
+            let payload = { sales, pending_trx, isBackgroundSync: true };
+
+            await fetch(cloudUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            // Kembalikan ke status normal (hijau) setelah sukses
+            updateNetworkStatus('up');
+            logActivity('SYNC', 'Background auto-sync sales berhasil dikirim ke Cloud.');
+        } catch (error) {
+            console.error("Background sync gagal:", error);
+            updateNetworkStatus('down');
+        }
     }
-
-    const cloudUrl = localStorage.getItem('pos_cloud_url');
-    if (!cloudUrl) return;
-// Indikator Visual: Ubah badge menjadi ikon sync berputar (🔄)
-    const badge = document.getElementById('netStatusBadge');
-    if (badge) {
-        badge.innerText = '🔄';
-        badge.title = 'Sedang menyinkronkan data ke Cloud...';
-    }
-    try {
-        let sales = await db.sales.toArray();
-        let pending_trx = await db.pending_trx.toArray();
-        let payload = { sales, pending_trx, isBackgroundSync: true };
-
-        await fetch(cloudUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        updateNetworkStatus('up');
-        logActivity('SYNC', 'Background auto-sync sales berhasil dikirim ke Cloud.');
-    } catch (error) {
-        console.error("Background sync gagal:", error);
-        updateNetworkStatus('down');
-    }
-}
     window.addEventListener('beforeunload', function (e) {
         if (cart.length > 0) { e.preventDefault(); e.returnValue = ''; }
     });
