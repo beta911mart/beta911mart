@@ -1654,22 +1654,26 @@ async function loadPendingTrx(id) {
         }
     }
 
-    async function deletePendingTrx(id) { 
-        if(confirm("Hapus / Batalkan pesanan ini?")) { 
+async function deletePendingTrx(id) { 
+        if(confirm("Batalkan dan hapus pesanan online ini?")) { 
+            // 1. Hapus dari database lokal (Dexie) agar hilang dari daftar Recall
             await deleteData('pending_trx', id); 
             
-            // KIRIM UPDATE KE CLOUD: Ubah status pesanan di Google Sheets menjadi "CANCELLED"
-            updateOrderStatusToCloud(id, "CANCELLED");
+            // 2. Kirim status "CANCELLED" ke Google Sheets (Cloud)
+            await updateOrderStatusToCloud(id, "CANCELLED");
 
+            // 3. Perbarui tampilan badge & daftar recall
             updatePendingBadge(); 
             openRecallModal(); 
+            showAlert('Pesanan berhasil dibatalkan.');
         } 
     }
 
-    // Fungsi pembantu untuk mengupdate status pesanan online di Google Sheets
+    // Fungsi helper untuk mengirim update status ke Google Sheets
     async function updateOrderStatusToCloud(orderId, newStatus) {
-        const cloudUrl = localStorage.getItem('pos_desktop_cloud_url');
+        const cloudUrl = localStorage.getItem('pos_desktop_cloud_url') || localStorage.getItem('pos_cloud_url');
         if (!cloudUrl || !navigator.onLine) return;
+        
         try {
             await fetch(cloudUrl + "?action=updateStatus", {
                 method: 'POST',
@@ -1677,6 +1681,7 @@ async function loadPendingTrx(id) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderId: orderId, status: newStatus })
             });
+            logActivity('SYNC', `Status pesanan ${orderId} diubah menjadi ${newStatus} di Cloud.`);
         } catch(e) {
             console.error("Gagal memperbarui status ke cloud:", e);
         }
