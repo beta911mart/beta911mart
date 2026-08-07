@@ -666,7 +666,12 @@
 
     const cloudUrl = localStorage.getItem('pos_cloud_url');
     if (!cloudUrl) return;
-
+// Indikator Visual: Ubah badge menjadi ikon sync berputar (🔄)
+    const badge = document.getElementById('netStatusBadge');
+    if (badge) {
+        badge.innerText = '🔄';
+        badge.title = 'Sedang menyinkronkan data ke Cloud...';
+    }
     try {
         let sales = await db.sales.toArray();
         let pending_trx = await db.pending_trx.toArray();
