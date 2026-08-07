@@ -719,7 +719,7 @@
         }
     }
 
-    // AUTO PUSH SALES TIAP 10 MENIT (SMART MERGE COMPATIBLE)
+// AUTO SYNC BERKALA TIAP 10 MENIT (DUA ARAH: PUSH & PULL OTOMATIS)
     async function runBackgroundBatchSync() {
         if (!navigator.onLine) {
             updateNetworkStatus('down');
@@ -730,6 +730,7 @@
         if (!cloudUrl) return;
 
         try {
+            // 1. PUSH: Kirim data sales & pending_trx lokal ke cloud
             let sales = await db.sales.toArray();
             let pending_trx = await db.pending_trx.toArray();
             let payload = { sales, pending_trx, isBackgroundSync: true };
@@ -741,8 +742,43 @@
                 body: JSON.stringify(payload)
             });
 
+            // 2. PULL: Tarik data terbaru dari cloud secara diam-diam di background
+            let response = await fetch(cloudUrl);
+            if (response.ok) {
+                let data = await response.json();
+
+                // Ambil pesanan pending dari customer online
+                if (data.pending_trx && Array.isArray(data.pending_trx)) {
+                    for (let p of data.pending_trx) {
+                        if (!p.trxNo) continue;
+                        let existing = await db.pending_trx.where('trxNo').equals(p.trxNo).first();
+                        if (!existing) {
+                            await db.pending_trx.put(p);
+                        }
+                    }
+                }
+
+                // Update inventory otomatis jika gudang mengubah stok
+                if (data.inventory && Array.isArray(data.inventory)) {
+                    let validInventory = data.inventory.map((item, index) => ({
+                        id: item.id || item.ID || item.barcode || `AUTO_${index}_${Date.now()}`,
+                        barcode: item.barcode || item.Barcode || '',
+                        nama: item.nama || item.Nama || item.NAME || '',
+                        harga: Number(item.harga || item.Harga || item.HARGA || 0),
+                        stok: Number(item.stok || item.Stok || item.STOK || 0)
+                    })).filter(item => item.nama !== "");
+
+                    await db.inventory.clear();
+                    await db.inventory.bulkPut(validInventory);
+                    if (typeof loadInventoryCache === 'function') await loadInventoryCache();
+                }
+
+                // Perbarui badge pending order secara otomatis di layar kasir
+                if (typeof updatePendingBadge === 'function') updatePendingBadge();
+            }
+
             updateNetworkStatus('up');
-            logActivity('SYNC', 'Background auto-sync sales berhasil dikirim ke Cloud.');
+            logActivity('SYNC', 'Background auto-sync dua arah (Push & Pull) berhasil dijalankan.');
         } catch (error) {
             console.error("Background sync gagal:", error);
             updateNetworkStatus('down');
