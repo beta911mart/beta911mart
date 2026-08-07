@@ -1618,25 +1618,34 @@ async function loadPendingTrx(id) {
         if(t) {
             if(cart.length > 0 && !confirm("Timpa keranjang belanja saat ini?")) return;
             
-            // Normalisasi items dari customer agar kompatibel dengan struktur cart Desktop
             let rawItems = t.items || t.cart || [];
-            cart = rawItems.map(i => ({
-                id: i.id || ('CUST_' + Math.floor(Math.random()*1000)),
-                nama: i.nama || i.name || 'Barang',
-                harga: Number(i.harga) || 0,
-                qty: Number(i.qty) || 1,
-                subtotal: (Number(i.harga) || 0) * (Number(i.qty) || 1),
-                maxStok: 9999 // Aman untuk online order
-            }));
+            
+            // Lakukan pemetaan dan pencocokan cerdas dengan inventory lokal kasir
+            cart = rawItems.map(i => {
+                // Cari apakah barang ini ada di inventory kasir berdasarkan barcode atau nama
+                let matchedInv = inventoryCache.find(inv => 
+                    (i.barcode && inv.barcode === i.barcode) || 
+                    (inv.nama && i.nama && inv.nama.toLowerCase() === i.nama.toLowerCase())
+                );
+
+                return {
+                    // Jika ketemu di inventory lokal, gunakan ID asli inventory tersebut agar stok terpotong akurat
+                    id: matchedInv ? matchedInv.id : (i.id || 'CUST_' + Math.floor(Math.random()*1000)),
+                    nama: i.nama || i.name || 'Barang',
+                    harga: Number(i.harga) || 0,
+                    qty: Number(i.qty) || 1,
+                    subtotal: (Number(i.harga) || 0) * (Number(i.qty) || 1),
+                    // Ambil stok asli dari inventory lokal, jika tidak ketemu set aman
+                    maxStok: matchedInv ? matchedInv.stok : 9999 
+                };
+            });
 
             currentTrxNo = t.trxNo || t.id;
             document.getElementById('footerTrxNo').innerText = currentTrxNo;
             renderKeranjang(); 
             
-            // Hapus dari database lokal Dexie
+            // Hapus dari database lokal Dexie & update status ke cloud
             await deleteData('pending_trx', id); 
-            
-            // KIRIM UPDATE KE CLOUD: Ubah status pesanan di Google Sheets menjadi "PROCESSED"
             updateOrderStatusToCloud(id, "PROCESSED");
 
             updatePendingBadge(); 
