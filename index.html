@@ -1613,16 +1613,65 @@ function tarikDataDariCloudDesktop() {
     }
     function closeRecallModal() { document.getElementById('recall-modal').style.display = 'none'; document.getElementById('scanKasir')?.focus(); }
 
-    async function loadPendingTrx(id) {
+async function loadPendingTrx(id) {
         let t = (await getAllData('pending_trx')).find(p => p.id === id);
         if(t) {
-            if(cart.length > 0 && !confirm("Timpa keranjang saat ini?")) return;
-            cart = t.cart; currentTrxNo = t.trxNo; document.getElementById('footerTrxNo').innerText = currentTrxNo;
-            renderKeranjang(); await deleteData('pending_trx', id); updatePendingBadge(); closeRecallModal(); playSound('success');
+            if(cart.length > 0 && !confirm("Timpa keranjang belanja saat ini?")) return;
+            
+            // Normalisasi items dari customer agar kompatibel dengan struktur cart Desktop
+            let rawItems = t.items || t.cart || [];
+            cart = rawItems.map(i => ({
+                id: i.id || ('CUST_' + Math.floor(Math.random()*1000)),
+                nama: i.nama || i.name || 'Barang',
+                harga: Number(i.harga) || 0,
+                qty: Number(i.qty) || 1,
+                subtotal: (Number(i.harga) || 0) * (Number(i.qty) || 1),
+                maxStok: 9999 // Aman untuk online order
+            }));
+
+            currentTrxNo = t.trxNo || t.id;
+            document.getElementById('footerTrxNo').innerText = currentTrxNo;
+            renderKeranjang(); 
+            
+            // Hapus dari database lokal Dexie
+            await deleteData('pending_trx', id); 
+            
+            // KIRIM UPDATE KE CLOUD: Ubah status pesanan di Google Sheets menjadi "PROCESSED"
+            updateOrderStatusToCloud(id, "PROCESSED");
+
+            updatePendingBadge(); 
+            closeRecallModal(); 
+            playSound('success');
         }
     }
-    async function deletePendingTrx(id) { if(confirm("Hapus?")) { await deleteData('pending_trx', id); updatePendingBadge(); openRecallModal(); } }
 
+    async function deletePendingTrx(id) { 
+        if(confirm("Hapus / Batalkan pesanan ini?")) { 
+            await deleteData('pending_trx', id); 
+            
+            // KIRIM UPDATE KE CLOUD: Ubah status pesanan di Google Sheets menjadi "CANCELLED"
+            updateOrderStatusToCloud(id, "CANCELLED");
+
+            updatePendingBadge(); 
+            openRecallModal(); 
+        } 
+    }
+
+    // Fungsi pembantu untuk mengupdate status pesanan online di Google Sheets
+    async function updateOrderStatusToCloud(orderId, newStatus) {
+        const cloudUrl = localStorage.getItem('pos_desktop_cloud_url');
+        if (!cloudUrl || !navigator.onLine) return;
+        try {
+            await fetch(cloudUrl + "?action=updateStatus", {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: orderId, status: newStatus })
+            });
+        } catch(e) {
+            console.error("Gagal memperbarui status ke cloud:", e);
+        }
+    }
     function generateStrukHTML(waktu, bayar, kembali, kasir, trxNo, itemsList, metode) {
         let html = ``;
         if (tokoData.logo) {
