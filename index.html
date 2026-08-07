@@ -1604,7 +1604,7 @@ function tarikDataDariCloudDesktop() {
         else {
             list.forEach(p => {
                 c.innerHTML += `<div style="background:#f8f9fa; border:1px solid #ddd; padding:12px; border-radius:6px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div><strong>${p.trxNo}</strong> <small>(${p.time})</small><br><strong style="color:var(--success);">${formatRp(p.total)}</strong></div>
+                    <div><strong>${p.trxNo}</strong> <small>(${p.time || p.tanggal || '-'})</small><br><strong style="color:var(--success);">${formatRp(p.total)}</strong></div>
                     <div><button class="btn btn-success btn-sm" onclick="loadPendingTrx('${p.id}')">Muat</button><button class="btn btn-danger btn-sm" onclick="deletePendingTrx('${p.id}')">Hapus</button></div>
                 </div>`;
             });
