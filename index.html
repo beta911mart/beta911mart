@@ -824,7 +824,18 @@ function tarikDataDariCloudDesktop() {
                     }
                 }
 
-                // --- PROSES INVENTORY DENGAN AUTO-ID & MAP FLEKSIBEL (MENCEGAH DATAERROR) ---
+                // --- PROSES PENDING_TRX (PESANAN MASUK DARI CUSTOMER) ---
+                if (data.pending_trx && Array.isArray(data.pending_trx)) {
+                    for (let p of data.pending_trx) {
+                        if (!p.trxNo) continue;
+                        let existing = await db.pending_trx.where('trxNo').equals(p.trxNo).first();
+                        if (!existing) {
+                            await db.pending_trx.put(p);
+                        }
+                    }
+                }
+
+                // --- PROSES INVENTORY DENGAN AUTO-ID & MAP FLEKSIBEL ---
                 if (data.inventory && Array.isArray(data.inventory)) {
                     let validInventory = data.inventory.map((item, index) => {
                         return {
@@ -862,9 +873,10 @@ function tarikDataDariCloudDesktop() {
 
                 if (typeof loadInventoryCache === 'function') await loadInventoryCache();
                 if (typeof refreshTabelSetting === 'function') refreshTabelSetting();
+                if (typeof updatePendingBadge === 'function') updatePendingBadge();
                 
-                logActivity('SYNC', 'Tarik data (Pull) dari Cloud berhasil dilakukan.');
-                showAlert('Sinkronisasi Berhasil! Rekap penjualan & stok diperbarui.');
+                logActivity('SYNC', 'Tarik data (Pull) dari Cloud termasuk pesanan customer berhasil dilakukan.');
+                showAlert('Sinkronisasi Berhasil! Stok, Penjualan & Pesanan Customer diperbarui.');
             } catch (error) {
                 console.error(error);
                 showAlert('Gagal menarik data dari Cloud.', 'error');
