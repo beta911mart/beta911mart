@@ -1064,12 +1064,12 @@ function tarikDataDariCloudDesktop() {
     }
 
     const db = new Dexie('POS_PRO_ModernDB');
-    db.version(1).stores({
+    db.version(2).stores({
         inventory: 'id, barcode, nama',
         users: 'id, nama, jabatan',
         sales: '++id, trxNo, tanggal, kasir',
         settings: 'key',
-        pending_trx: 'id'
+        pending_trx: 'id, trxNo' // <-- Perhatikan penambahan trxNo di sini
     });
 
     async function getAllData(storeName) { return await db[storeName].toArray(); }
