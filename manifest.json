@@ -7,7 +7,7 @@
   "theme_color": "#3498db",
   "icons": [
     {
-      "src": "tokoData.logo",
+      "src": "download.png",
       "sizes": "512x512",
       "type": "image/png"
     }
