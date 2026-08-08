@@ -1351,15 +1351,11 @@ function playSound(type) {
     }
 
     async function logoutKasir() {
-        if (confirm("Keluar dari akun kasir saat ini?")) {
-            logActivity('LOGIN', `User ${activeKasir ? activeKasir.nama : 'Unknown'} melakukan logout.`);
-            activeKasir = null; cart = []; renderKeranjang();
-            document.getElementById('loginUsernameInput').value = '';
-            document.getElementById('loginPassword').value = ''; 
-            document.getElementById('login-overlay').style.display = 'flex';
-            document.getElementById('loginUsernameInput').focus();
+            if (confirm("Keluar dari akun kasir saat ini?")) {
+                await logActivity('LOGIN', `User ${activeKasir ? activeKasir.nama : 'Unknown'} melakukan logout.`);
+                location.reload();
+            }
         }
-    }
 
     function openSettings() {
         document.getElementById('settings-modal').style.display = 'flex';
