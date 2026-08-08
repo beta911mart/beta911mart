@@ -759,7 +759,9 @@ async function runBackgroundBatchSync() {
     }
 
 // AUTO SYNC BERKALA TIAP 10 MENIT (DUA ARAH: PUSH & PULL OTOMATIS)
-    async function runBackgroundBatchSync() {
+async function runBackgroundBatchSync() {
+        if (!activeKasir) return; 
+
         if (!navigator.onLine) {
             updateNetworkStatus('down');
             return;
@@ -767,6 +769,17 @@ async function runBackgroundBatchSync() {
 
         const cloudUrl = localStorage.getItem('pos_cloud_url') || localStorage.getItem('pos_desktop_cloud_url');
         if (!cloudUrl) return;
+
+        // 1. Bunyikan suara unik tanda sinkronisasi dimulai
+        playSound('sync');
+
+        // 2. Ubah indikator visual di footer menjadi status proses (Oranye)
+        const badge = document.getElementById('netStatusBadge');
+        if (badge) {
+            badge.innerHTML = '🔄 SYNCING...';
+            badge.style.color = '#f39c12'; 
+            badge.title = 'Sedang menyinkronkan data dua arah ke Cloud...';
+        }
 
         try {
             // 1. PUSH: Kirim data sales & pending_trx lokal ke cloud
@@ -786,7 +799,6 @@ async function runBackgroundBatchSync() {
             if (response.ok) {
                 let data = await response.json();
 
-                // Ambil pesanan pending dari customer online
                 if (data.pending_trx && Array.isArray(data.pending_trx)) {
                     for (let p of data.pending_trx) {
                         if (!p.trxNo) continue;
@@ -797,7 +809,6 @@ async function runBackgroundBatchSync() {
                     }
                 }
 
-                // Update inventory otomatis jika gudang mengubah stok
                 if (data.inventory && Array.isArray(data.inventory)) {
                     let validInventory = data.inventory.map((item, index) => ({
                         id: item.id || item.ID || item.barcode || `AUTO_${index}_${Date.now()}`,
@@ -812,10 +823,10 @@ async function runBackgroundBatchSync() {
                     if (typeof loadInventoryCache === 'function') await loadInventoryCache();
                 }
 
-                // Perbarui badge pending order secara otomatis di layar kasir
                 if (typeof updatePendingBadge === 'function') updatePendingBadge();
             }
 
+            // Kembalikan status badge ke hijau normal setelah sukses
             updateNetworkStatus('up');
             logActivity('SYNC', 'Background auto-sync dua arah (Push & Pull) berhasil dijalankan.');
         } catch (error) {
@@ -1078,7 +1089,7 @@ function tarikDataDariCloudDesktop() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         return audioCtx;
     }
-    function playSound(type) {
+function playSound(type) {
         try {
             const ctx = getAudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
@@ -1098,10 +1109,19 @@ function tarikDataDariCloudDesktop() {
                 osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, ctx.currentTime); osc.frequency.setValueAtTime(165, ctx.currentTime + 0.1);
                 gain.gain.setValueAtTime(0.1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
                 osc.start(); osc.stop(ctx.currentTime + 0.2);
+            } 
+            // === TAMBAHKAN NADA KHUSUS SYNC DI SINI ===
+            else if (type === 'sync') {
+                const now = ctx.currentTime;
+                [1046.50, 1318.51].forEach((freq, index) => { // Nada ganda lembut (Chime)
+                    let o = ctx.createOscillator(); let g = ctx.createGain();
+                    o.type = 'sine'; o.frequency.setValueAtTime(freq, now + (index * 0.08));
+                    g.gain.setValueAtTime(0.08, now + (index * 0.08)); g.gain.exponentialRampToValueAtTime(0.001, now + (index * 0.08) + 0.15);
+                    o.connect(g); g.connect(ctx.destination); o.start(now + (index * 0.08)); o.stop(now + (index * 0.08) + 0.15);
+                });
             }
         } catch(e) {}
     }
-
     const db = new Dexie('POS_PRO_ModernDB');
     db.version(2).stores({
         inventory: 'id, barcode, nama',
