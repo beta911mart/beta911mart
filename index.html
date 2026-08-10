@@ -446,6 +446,7 @@
                         <option value="Owner">Owner</option>
                         <option value="Administrator">Administrator</option>
                         <option value="Manager">Manager</option>
+                        <option value="Gudang">Gudang</option>
                         <option value="Kasir">Kasir</option>
                     </select>
                     <input type="password" id="inputPasswordUser" class="form-control" placeholder="Password" style="flex: 1; min-width: 140px;">
@@ -1195,6 +1196,7 @@ function playSound(type) {
             await saveData('users', { id: 1, nama: 'owner', jabatan: 'Owner', password: defaultPass });
             await saveData('users', { id: 2, nama: 'admin', jabatan: 'Administrator', password: defaultPass });
             await saveData('users', { id: 3, nama: 'manager', jabatan: 'Manager', password: defaultPass });
+            await saveData('users', { id: 3, nama: 'gudang', jabatan: 'Gudang', password: defaultPass });
             await saveData('users', { id: 4, nama: 'kasir', jabatan: 'Kasir', password: defaultPass });
         }
 
@@ -1345,11 +1347,11 @@ async function prosesLogin() {
             document.getElementById('login-overlay').style.display = 'none'; 
             document.body.style.overflow = 'auto';
             
-            // 💡 CEK HAK AKSES TOMBOL WAREHOUSE (Hanya Owner & Manager)
+            // 💡 CEK HAK AKSES TOMBOL WAREHOUSE (Hanya Owner & Manager & Gudang)
             const jabatanLower = String(user.jabatan || '').toLowerCase();
             const btnWarehouse = document.getElementById('btnWarehouse');
             if (btnWarehouse) {
-                if (jabatanLower.includes('owner') || jabatanLower.includes('manager')) {
+                if (jabatanLower.includes('owner') || jabatanLower.includes('manager') || jabatanLower.includes('gudang')) {
                     btnWarehouse.style.display = 'inline-block';
                 } else {
                     btnWarehouse.style.display = 'none';
@@ -1405,6 +1407,10 @@ async function prosesLogin() {
             }
         } else if (role === 'administrator') {
             if (sectionId === 'set-backup') {
+                needsApproval = true; actionLabel = 'Akses Khusus Owner';
+            }
+        } else if (role === 'gudang') {
+            if (['set-user', 'set-laporan', 'set-struk', 'set-printer', 'set-log'].includes(sectionId)) {
                 needsApproval = true; actionLabel = 'Akses Khusus Owner';
             }
         }
