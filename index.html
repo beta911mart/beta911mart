@@ -352,7 +352,9 @@
         <span>👤 <strong id="headerKasirNama">-</strong></span>
         <button class="btn-settings btn-logout" onclick="logoutKasir()" title="Keluar dari Akun Kasir">🚪 Logout</button>
         <button class="btn-settings" onclick="openSettings()" title="Menu Pengaturan / Setelan">⚙️ SETELAN & MENU</button>
-    </div>
+        <!-- 💡 TOMBOL WAREHOUSE (Hanya tampil untuk Owner & Manager) -->
+        <button id="btnWarehouse" class="btn-settings" style="display: none; background: #e67e22; border-color: #d35400;" onclick="location.href='warehouse.html'" title="Beralih ke Aplikasi Gudang">📦 Warehouse</button>
+        </div>
 </header>
 
 <div id="main-kasir">
@@ -1326,8 +1328,8 @@ function playSound(type) {
         }
     }
 
-    // LOGIN MANUAL USERNAME INPUT (MENGGANTIKAN DROPDOWN)
-    async function prosesLogin() {
+    // LOGIN 
+async function prosesLogin() {
         const usernameVal = document.getElementById('loginUsernameInput').value.trim().toLowerCase();
         const pass = document.getElementById('loginPassword').value;
         if (!usernameVal) { showAlert('Masukkan username!', 'error'); return; }
@@ -1338,9 +1340,22 @@ function playSound(type) {
 
         const hashedInput = await hashPassword(pass);
         if (user.password === hashedInput) {
-            activeKasir = user; document.getElementById('headerKasirNama').innerText = `${user.nama} (${user.jabatan})`;
-            document.getElementById('login-overlay').style.display = 'none'; document.body.style.overflow = 'auto';
+            activeKasir = user; 
+            document.getElementById('headerKasirNama').innerText = `${user.nama} (${user.jabatan})`;
+            document.getElementById('login-overlay').style.display = 'none'; 
+            document.body.style.overflow = 'auto';
             
+            // 💡 CEK HAK AKSES TOMBOL WAREHOUSE (Hanya Owner & Manager)
+            const jabatanLower = String(user.jabatan || '').toLowerCase();
+            const btnWarehouse = document.getElementById('btnWarehouse');
+            if (btnWarehouse) {
+                if (jabatanLower.includes('owner') || jabatanLower.includes('manager')) {
+                    btnWarehouse.style.display = 'inline-block';
+                } else {
+                    btnWarehouse.style.display = 'none';
+                }
+            }
+
             try {
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen().catch(err => {});
